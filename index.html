@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Trader-Grade Week Comparator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Inter, Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+      background: #020617;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(56,189,248,0.15);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    select, button {
+      padding: 10px;
+      font-size: 15px;
+      width: 100%;
+      background: #020617;
+      color: #e5e7eb;
+      border: 1px solid #334155;
+      border-radius: 6px;
+    }
+
+    button {
+      cursor: pointer;
+      background: #0284c7;
+      border: none;
+      font-weight: bold;
+      margin-top: 12px;
+    }
+
+    button:hover {
+      background: #0369a1;
+    }
+
+    .preview {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid #1e293b;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      color: #38bdf8;
+    }
+
+    .year-title {
+      margin-top: 30px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #7dd3fc;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Trader-Grade ISO Week Comparator</h1>
+
+<div class="container">
+
+  <div class="row">
+    <select id="yearSelect" onchange="updatePreview()"></select>
+    <select id="weekSelect" onchange="updatePreview()"></select>
+  </div>
+
+  <div class="preview" id="preview"></div>
+
+  <div class="row">
+    <select id="lookback">
+      <option value="5">5 years</option>
+      <option value="10" selected>10 years</option>
+      <option value="20">20 years</option>
+    </select>
+  </div>
+
+  <button onclick="generate()">Generate Trading Weeks</button>
+  <button onclick="exportCSV()">Export CSV</button>
+
+  <div id="output"></div>
+</div>
+
+<script>
+let csvData = [];
+
+function getMondayFromISO(year, week) {
+  const d = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const day = d.getUTCDay();
+  const monday = new Date(d);
+  if (day <= 4) monday.setUTCDate(d.getUTCDate() - day + 1);
+  else monday.setUTCDate(d.getUTCDate() + 8 - day);
+  return monday;
+}
+
+function format(d) {
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function populateSelectors() {
+  const yearSel = document.getElementById("yearSelect");
+  const weekSel = document.getElementById("weekSelect");
+
+  const currentYear = new Date().getFullYear();
+
+  for (let y = currentYear; y >= currentYear - 30; y--) {
+    yearSel.innerHTML += `<option value="${y}">${y}</option>`;
+  }
+
+  for (let w = 1; w <= 53; w++) {
+    weekSel.innerHTML += `<option value="${w}">Week ${w}</option>`;
+  }
+
+  weekSel.value = 1;
+}
+
+function updatePreview() {
+  const year = parseInt(yearSelect.value);
+  const week = parseInt(weekSelect.value);
+  const monday = getMondayFromISO(year, week);
+  const friday = new Date(monday);
+  friday.setUTCDate(monday.getUTCDate() + 4);
+
+  preview.textContent = `ISO Week ${week} • ${format(monday)} → ${format(friday)}`;
+}
+
+function generate() {
+  const year = parseInt(yearSelect.value);
+  const week = parseInt(weekSelect.value);
+  const lookback = parseInt(document.getElementById("lookback").value);
+  const output = document.getElementById("output");
+
+  output.innerHTML = "";
+  csvData = [];
+
+  for (let i = 0; i <= lookback; i++) {
+    const y = year - i;
+    const monday = getMondayFromISO(y, week);
+
+    let row = "";
+    let csvRow = [y, week];
+
+    for (let d = 0; d < 5; d++) {
+      const day = new Date(monday);
+      day.setUTCDate(monday.getUTCDate() + d);
+      row += `<td>${format(day)}</td>`;
+      csvRow.push(day.toISOString().split("T")[0]);
+    }
+
+    csvData.push(csvRow);
+
+    output.innerHTML += `
+      <div class="year-title">${y} — ISO Week ${week}</div>
+      <table>
+        <thead>
+          <tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th></tr>
+        </thead>
+        <tbody>
+          <tr>${row}</tr>
+        </tbody>
+      </table>
+    `;
+  }
+}
+
+function exportCSV() {
+  if (!csvData.length) return alert("Generate first");
+
+  let csv = "Year,ISO_Week,Monday,Tuesday,Wednesday,Thursday,Friday\n";
+  csvData.forEach(r => csv += r.join(",") + "\n");
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "iso_week_comparison.csv";
+  a.click();
+}
+
+populateSelectors();
+updatePreview();
+</script>
+
+</body>
+</html>
